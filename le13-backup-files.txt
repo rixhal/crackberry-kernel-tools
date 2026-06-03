@@ -1,0 +1,12 @@
+LE13 Nightly Backup (created 2025-06-04, before kernel mixing attempt)
+Host: crackberry5 (RPi5)
+Path: /storage/le13-backup-boot/
+
+kernel.img     — 12,228,528 bytes  MD5: 61d2604716992dd608bdcd8ec01ff9df
+SYSTEM          — 159,232,000 bytes (LE13 SYSTEM image)
+overlays/       — 371 overlays
+*.dtb           — 22 DTB files for all Pi models
+modules-6.18.32.tar.gz — NOT backed up (was on running system, lost after LE12 boot)
+
+Original cmdline.txt: NOT preserved (overwritten during kernel mixing)
+Recovered UUIDs: boot=0111-4635 disk=67e94c52-7c1c-4e07-b241-4d3919401f7a

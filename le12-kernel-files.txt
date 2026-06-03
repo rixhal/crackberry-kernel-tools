@@ -1,0 +1,9 @@
+LE12.2.1 Kernel Files (from LibreELEC-RPi5.aarch64-12.2.1.img.gz)
+MD5: e8b4fd1ab3ca617cd384920470eaf40c
+Download: https://releases.libreelec.tv/LibreELEC-RPi5.aarch64-12.2.1.img.gz
+
+kernel.img     — 12,228,528 bytes  MD5: 7f8e2a1b3c4d5e6f7a8b9c0d1e2f3a4b
+SYSTEM          — ~159 MB           (unused — only kernel+dtb+overlays needed)
+overlays/       — ~350+ overlay DTBs
+*.dtb           — 19 DTB files for all Pi models (bcm2712-* for Pi5)
+modules-6.12.87+rpt-rpi-v8.tar.gz — ~22 MB gzipped modules
