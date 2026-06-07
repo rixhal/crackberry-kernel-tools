@@ -31,12 +31,11 @@ cleanup() {
     sudo umount /mnt/le12-system 2>/dev/null || true
     sudo umount /mnt/le13-boot 2>/dev/null || true
     sudo umount /mnt/le13-system 2>/dev/null || true
-    # Detach all loops used by our images
     for img in "$WORKDIR/le12.img" "$WORKDIR/le13.img"; do
         LOOP=$(sudo losetup -j "$img" 2>/dev/null | grep -oP '/dev/loop\d+' | head -1)
         [ -n "$LOOP" ] && sudo losetup -d "$LOOP" 2>/dev/null || true
     done
-    rm -rf "$WORKDIR"
+    sudo rm -rf "$WORKDIR"
 }
 trap cleanup EXIT
 
