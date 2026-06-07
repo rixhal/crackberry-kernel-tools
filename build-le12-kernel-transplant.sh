@@ -82,16 +82,17 @@ sudo mkdir -p /mnt/le12-boot /mnt/le12-system
 sudo mount ${LE12_LOOP}p1 /mnt/le12-boot || { err "Mount LE12 boot fehlgeschlagen"; exit 1; }
 sudo mount -o loop /mnt/le12-boot/SYSTEM /mnt/le12-system || { err "Mount LE12 SYSTEM fehlgeschlagen"; exit 1; }
 
-# Verify mount
-[ -d /mnt/le12-system/lib/modules ] || { err "LE12 SYSTEM hat kein /lib/modules"; exit 1; }
+# LibreELEC nutzt Kernel-Overlays: Module liegen nicht in /lib/modules,
+# sondern in /usr/lib/kernel-overlays/base/lib/modules/
+OVERLAY_BASE="/mnt/le12-system/usr/lib/kernel-overlays/base/lib/modules"
+[ -d "$OVERLAY_BASE" ] || { err "Kein kernel-overlays in LE12 SYSTEM — falsches Image?"; exit 1; }
 
-LE12_KERNEL_VER=$(sudo ls /mnt/le12-system/lib/modules/ | head -1)
-[ -z "$LE12_KERNEL_VER" ] && { err "Keine Kernel-Version in LE12 SYSTEM gefunden"; exit 1; }
+LE12_KERNEL_VER=$(sudo ls "$OVERLAY_BASE" | head -1)
+[ -z "$LE12_KERNEL_VER" ] && { err "Keine Kernel-Version in LE12 Overlay gefunden"; exit 1; }
 log "LE12 Kernel-Version: $LE12_KERNEL_VER"
 
-# Verify modules exist
-KO_COUNT=$(sudo find /mnt/le12-system/lib/modules/ -name "*.ko" | wc -l)
-[ "$KO_COUNT" -lt 10 ] && { err "Nur $KO_COUNT .ko-Dateien — Mount wahrscheinlich falsch"; exit 1; }
+KO_COUNT=$(sudo find "$OVERLAY_BASE/$LE12_KERNEL_VER" -name "*.ko" | wc -l)
+[ "$KO_COUNT" -lt 10 ] && { err "Nur $KO_COUNT .ko-Dateien in Overlay"; exit 1; }
 log "$KO_COUNT Kernel-Module gefunden"
 
 # Kernel + DTBs kopieren
@@ -99,8 +100,8 @@ sudo cp /mnt/le12-boot/kernel.img "$WORKDIR/"
 sudo cp /mnt/le12-boot/*.dtb "$WORKDIR/"
 sudo cp -r /mnt/le12-boot/overlays "$WORKDIR/" 2>/dev/null || true
 
-# Module sichern
-sudo tar czf "$WORKDIR/le12-modules.tar.gz" -C /mnt/le12-system/lib/modules "$LE12_KERNEL_VER"
+# Module aus Overlay-Pfad sichern
+sudo tar czf "$WORKDIR/le12-modules.tar.gz" -C "$OVERLAY_BASE" "$LE12_KERNEL_VER"
 
 # ── 5. LE13 SYSTEM mounten + patchen ───────────────────────────
 log "Extrahiere LE13 SYSTEM..."
@@ -111,13 +112,14 @@ sudo mount ${LE13_LOOP}p1 /mnt/le13-boot
 
 LE13_KERNEL_VER=$(sudo unsquashfs -l /mnt/le13-boot/SYSTEM 2>/dev/null | grep 'lib/modules/' | head -1 | awk -F/ '{print $4}' || echo "unknown")
 
-log "Patche LE13 SYSTEM (LE12-Module rein)..."
+log "Patche LE13 SYSTEM (LE12-Module in Overlay)..."
 sudo unsquashfs -d "$WORKDIR/squashfs-root" /mnt/le13-boot/SYSTEM
 
-# LE13 Module entfernen, LE12 Module reinkopieren
-sudo bash -c "rm -rf $WORKDIR/squashfs-root/lib/modules/*"
-sudo mkdir -p "$WORKDIR/squashfs-root/lib/modules"
-sudo tar xzf "$WORKDIR/le12-modules.tar.gz" -C "$WORKDIR/squashfs-root/lib/modules/"
+# LE13 Overlay-Module entfernen, LE12 Overlay-Module reinkopieren
+LE13_OVERLAY="$WORKDIR/squashfs-root/usr/lib/kernel-overlays/base/lib/modules"
+sudo bash -c "rm -rf $LE13_OVERLAY/*"
+sudo mkdir -p "$LE13_OVERLAY"
+sudo tar xzf "$WORKDIR/le12-modules.tar.gz" -C "$LE13_OVERLAY/"
 
 # Versions-Marker setzen
 echo "LE12-Kernel: $LE12_KERNEL_VER | LE13-Nightly: $LATEST_DATE ($LATEST_COMMIT)" | \
