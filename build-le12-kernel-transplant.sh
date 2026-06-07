@@ -83,11 +83,11 @@ sudo mount ${LE12_LOOP}p1 /mnt/le12-boot
 sudo mount -o loop /mnt/le12-boot/SYSTEM /mnt/le12-system
 
 # Kernel + DTBs kopieren
-cp /mnt/le12-boot/kernel.img "$WORKDIR/"
-cp /mnt/le12-boot/*.dtb "$WORKDIR/"
-cp -r /mnt/le12-boot/overlays "$WORKDIR/" 2>/dev/null || true
+sudo cp /mnt/le12-boot/kernel.img "$WORKDIR/"
+sudo cp /mnt/le12-boot/*.dtb "$WORKDIR/"
+sudo cp -r /mnt/le12-boot/overlays "$WORKDIR/" 2>/dev/null || true
 
-LE12_KERNEL_VER=$(ls /mnt/le12-system/lib/modules/ | head -1)
+LE12_KERNEL_VER=$(sudo ls /mnt/le12-system/lib/modules/ | head -1)
 log "LE12 Kernel-Version: $LE12_KERNEL_VER"
 
 # Module sichern
@@ -106,7 +106,7 @@ log "Patche LE13 SYSTEM (LE12-Module rein)..."
 sudo unsquashfs -d "$WORKDIR/squashfs-root" /mnt/le13-boot/SYSTEM
 
 # LE13 Module entfernen, LE12 Module reinkopieren
-sudo rm -rf "$WORKDIR/squashfs-root/lib/modules/"*
+sudo bash -c "rm -rf $WORKDIR/squashfs-root/lib/modules/*"
 sudo mkdir -p "$WORKDIR/squashfs-root/lib/modules"
 sudo tar xzf "$WORKDIR/le12-modules.tar.gz" -C "$WORKDIR/squashfs-root/lib/modules/"
 
