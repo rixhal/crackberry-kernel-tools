@@ -77,17 +77,27 @@ gunzip -f le13.img.gz
 log "Extrahiere LE12 Kernel + Module..."
 sudo losetup -fP le12.img
 LE12_LOOP=$(sudo losetup -j le12.img | grep -oP '/dev/loop\d+(?=:)' | head -1)
+[ -z "$LE12_LOOP" ] && { err "losetup LE12 fehlgeschlagen"; exit 1; }
 sudo mkdir -p /mnt/le12-boot /mnt/le12-system
-sudo mount ${LE12_LOOP}p1 /mnt/le12-boot
-sudo mount -o loop /mnt/le12-boot/SYSTEM /mnt/le12-system
+sudo mount ${LE12_LOOP}p1 /mnt/le12-boot || { err "Mount LE12 boot fehlgeschlagen"; exit 1; }
+sudo mount -o loop /mnt/le12-boot/SYSTEM /mnt/le12-system || { err "Mount LE12 SYSTEM fehlgeschlagen"; exit 1; }
+
+# Verify mount
+[ -d /mnt/le12-system/lib/modules ] || { err "LE12 SYSTEM hat kein /lib/modules"; exit 1; }
+
+LE12_KERNEL_VER=$(sudo ls /mnt/le12-system/lib/modules/ | head -1)
+[ -z "$LE12_KERNEL_VER" ] && { err "Keine Kernel-Version in LE12 SYSTEM gefunden"; exit 1; }
+log "LE12 Kernel-Version: $LE12_KERNEL_VER"
+
+# Verify modules exist
+KO_COUNT=$(sudo find /mnt/le12-system/lib/modules/ -name "*.ko" | wc -l)
+[ "$KO_COUNT" -lt 10 ] && { err "Nur $KO_COUNT .ko-Dateien — Mount wahrscheinlich falsch"; exit 1; }
+log "$KO_COUNT Kernel-Module gefunden"
 
 # Kernel + DTBs kopieren
 sudo cp /mnt/le12-boot/kernel.img "$WORKDIR/"
 sudo cp /mnt/le12-boot/*.dtb "$WORKDIR/"
 sudo cp -r /mnt/le12-boot/overlays "$WORKDIR/" 2>/dev/null || true
-
-LE12_KERNEL_VER=$(sudo ls /mnt/le12-system/lib/modules/ | head -1)
-log "LE12 Kernel-Version: $LE12_KERNEL_VER"
 
 # Module sichern
 sudo tar czf "$WORKDIR/le12-modules.tar.gz" -C /mnt/le12-system/lib/modules "$LE12_KERNEL_VER"
