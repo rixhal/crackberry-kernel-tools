@@ -31,8 +31,11 @@ cleanup() {
     sudo umount /mnt/le12-system 2>/dev/null || true
     sudo umount /mnt/le13-boot 2>/dev/null || true
     sudo umount /mnt/le13-system 2>/dev/null || true
-    sudo losetup -d /dev/loop0 2>/dev/null || true
-    sudo losetup -d /dev/loop1 2>/dev/null || true
+    # Detach all loops used by our images
+    for img in "$WORKDIR/le12.img" "$WORKDIR/le13.img"; do
+        LOOP=$(sudo losetup -j "$img" 2>/dev/null | grep -oP '/dev/loop\d+' | head -1)
+        [ -n "$LOOP" ] && sudo losetup -d "$LOOP" 2>/dev/null || true
+    done
     rm -rf "$WORKDIR"
 }
 trap cleanup EXIT
@@ -73,9 +76,10 @@ gunzip -f le13.img.gz
 
 # ── 4. LE12 Kernel + Module extrahieren ────────────────────────
 log "Extrahiere LE12 Kernel + Module..."
-sudo losetup -Pf /dev/loop0 le12.img
+sudo losetup -fP le12.img
+LE12_LOOP=$(sudo losetup -j le12.img | grep -oP '/dev/loop\d+(?=:)' | head -1)
 sudo mkdir -p /mnt/le12-boot /mnt/le12-system
-sudo mount /dev/loop0p1 /mnt/le12-boot
+sudo mount ${LE12_LOOP}p1 /mnt/le12-boot
 sudo mount -o loop /mnt/le12-boot/SYSTEM /mnt/le12-system
 
 # Kernel + DTBs kopieren
@@ -91,9 +95,10 @@ sudo tar czf "$WORKDIR/le12-modules.tar.gz" -C /mnt/le12-system/lib/modules "$LE
 
 # ── 5. LE13 SYSTEM mounten + patchen ───────────────────────────
 log "Extrahiere LE13 SYSTEM..."
-sudo losetup -Pf /dev/loop1 le13.img
+sudo losetup -fP le13.img
+LE13_LOOP=$(sudo losetup -j le13.img | grep -oP '/dev/loop\d+(?=:)' | head -1)
 sudo mkdir -p /mnt/le13-boot /mnt/le13-system
-sudo mount /dev/loop1p1 /mnt/le13-boot
+sudo mount ${LE13_LOOP}p1 /mnt/le13-boot
 
 LE13_KERNEL_VER=$(sudo unsquashfs -l /mnt/le13-boot/SYSTEM 2>/dev/null | grep 'lib/modules/' | head -1 | awk -F/ '{print $4}' || echo "unknown")
 
