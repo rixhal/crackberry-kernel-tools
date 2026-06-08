@@ -111,3 +111,11 @@ ssh root@10.10.10.140 "
 - **LE13 /storage is preserved** — all addons and configs survive
 - **Rollback always possible** — LE13 backup at /storage/le13-backup-boot/
 - **VFAT quirks:** Always `busybox cp` to /flash, never `scp` directly. Run `busybox sync` after.
+
+## Known Limitations
+
+- **Widevine DRM playback shows test pattern** (audio works). LE12 kernel limitation:
+  The LE12 kernel V3D driver only exposes `AR24/LINEAR` on the display plane,
+  not `NV12`. DRMPRIME secure decode requires NV12 for zero-copy buffer sharing.
+  Rolling back to LE13 kernel restores Widevine, but V3D-MMU crashes return.
+  See `le12-mesa-swap/` for the Mesa swap workaround and details.
