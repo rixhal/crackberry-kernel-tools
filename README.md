@@ -12,7 +12,7 @@ v3d 1002000000.v3d: MMU error from client L2T (40) at 0x1228ab00, pte invalid
 
 **Solution:** LE12 kernel transplant — LE12 stable SYSTEM (kernel 6.12.56) with LE13 `/storage` (Kodi 22, all addons).
 
-**Status: ✅ WORKING** (in production since 2026-06-04)
+**Status: ⚠️ PARTIALLY WORKING** (in production since 2026-06-04)
 
 - V3D-MMU: no errors ✅
 - WiFi: connected, -51 dBm ✅
@@ -20,6 +20,7 @@ v3d 1002000000.v3d: MMU error from client L2T (40) at 0x1228ab00, pte invalid
 - Kodi 22 + all addons (Samsung TV Plus, VavooTV, Flatpak) ✅
 - Tailscale ✅
 - No crashes during H.264 playback ✅
+- **Widevine DRM: test pattern instead of video ❌** (Pi 5 hardware limit — see below)
 
 ## How It Works
 
