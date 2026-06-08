@@ -1,11 +1,11 @@
 #!/bin/bash
 # build-le12-kernel-transplant.sh
-# Baut einen Hybrid aus LE12-Kernel + LE13-Userspace für RPi5
-# LE12-Kernel = stabiler V3D | LE13-SYSTEM = neueste Kodi-Addons
+# Build a hybrid LE12 kernel + LE13 userspace for RPi5
+# LE12 kernel = stable V3D | LE13 SYSTEM = latest Kodi addons
 #
 # Usage: ./build-le12-kernel-transplant.sh [--deploy]
-#   Ohne --deploy: baut nur, zeigt Diff zur letzten Version
-#   Mit --deploy: pushed auf crackberry5 und rebootet
+#   Without --deploy: build only, show diff from last version
+#   With --deploy: push to crackberry5 and reboot
 
 set -euo pipefail
 
@@ -26,7 +26,7 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 err()  { echo -e "${RED}[ERROR]${NC} $*"; }
 
 cleanup() {
-    log "Aufräumen..."
+    log "Cleaning up..."
     sudo umount /mnt/le12-boot 2>/dev/null || true
     sudo umount /mnt/le12-system 2>/dev/null || true
     sudo umount /mnt/le13-boot 2>/dev/null || true
@@ -39,72 +39,72 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# ── 1. Neueste Nightly finden ──────────────────────────────────
-log "Suche neueste LE13 Nightly..."
+# ── 1. Find latest Nightly ──────────────────────────────────
+log "Searching for latest LE13 Nightly..."
 LATEST=$(curl -sL "$LE13_BASE/" | grep -oP 'LibreELEC-RPi5.*?nightly-\d{8}-[a-f0-9]+\.img\.gz' | sort | tail -1)
 if [ -z "$LATEST" ]; then
-    err "Keine Nightly gefunden!"
+    err "No Nightly found!"
     exit 1
 fi
 LATEST_DATE=$(echo "$LATEST" | grep -oP '\d{8}')
 LATEST_COMMIT=$(echo "$LATEST" | grep -oP '[a-f0-9]{7}(?=\.img)')
-log "Neueste Nightly: $LATEST_DATE ($LATEST_COMMIT)"
+log "Latest Nightly: $LATEST_DATE ($LATEST_COMMIT)"
 
-# ── 2. Prüfen ob Update nötig ─────────────────────────────────
+# ── 2. Check if update needed ─────────────────────────────────
 CURRENT=$(ssh -o ConnectTimeout=5 "$DEPLOY_USER@$DEPLOY_HOST" "cat $MARKER_FILE 2>/dev/null" 2>/dev/null || echo "none")
 if [ "$CURRENT" = "$LATEST_DATE-$LATEST_COMMIT" ]; then
-    log "Bereits aktuell ($CURRENT). Nichts zu tun."
+    log "Already up to date ($CURRENT). Nothing to do."
     exit 0
 fi
-log "Update verfügbar: $CURRENT → $LATEST_DATE-$LATEST_COMMIT"
+log "Update available: $CURRENT → $LATEST_DATE-$LATEST_COMMIT"
 
-# ── 3. Images downloaden ───────────────────────────────────────
+# ── 3. Download images ───────────────────────────────────────
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
-log "Download LE12.2.1 Stable..."
+log "Downloading LE12.2.1 Stable..."
 if [ ! -f le12.img ]; then
     curl -sL "$LE12_URL" -o le12.img.gz
     gunzip -f le12.img.gz
 fi
 
 LE13_URL="$LE13_BASE/$LATEST"
-log "Download LE13 Nightly..."
+log "Downloading LE13 Nightly..."
 curl -sL "$LE13_URL" -o le13.img.gz
 gunzip -f le13.img.gz
 
-# ── 4. LE12 Kernel + Module extrahieren ────────────────────────
-log "Extrahiere LE12 Kernel + Module..."
+# ── 4. Extract LE12 kernel + modules ────────────────────────
+log "Extracting LE12 kernel + modules..."
 sudo losetup -fP le12.img
 LE12_LOOP=$(sudo losetup -j le12.img | grep -oP '/dev/loop\d+(?=:)' | head -1)
-[ -z "$LE12_LOOP" ] && { err "losetup LE12 fehlgeschlagen"; exit 1; }
+[ -z "$LE12_LOOP" ] && { err "losetup LE12 failed"; exit 1; }
 sudo mkdir -p /mnt/le12-boot /mnt/le12-system
-sudo mount ${LE12_LOOP}p1 /mnt/le12-boot || { err "Mount LE12 boot fehlgeschlagen"; exit 1; }
-sudo mount -o loop /mnt/le12-boot/SYSTEM /mnt/le12-system || { err "Mount LE12 SYSTEM fehlgeschlagen"; exit 1; }
+sudo mount ${LE12_LOOP}p1 /mnt/le12-boot || { err "Mount LE12 boot failed"; exit 1; }
+sudo mount -o loop /mnt/le12-boot/SYSTEM /mnt/le12-system || { err "Mount LE12 SYSTEM failed"; exit 1; }
 
-# LibreELEC nutzt Kernel-Overlays: Module liegen nicht in /lib/modules,
-# sondern in /usr/lib/kernel-overlays/base/lib/modules/
+# LibreELEC stores kernel modules in overlays: not in /lib/modules,
+# but in /usr/lib/kernel-overlays/base/lib/modules/
 OVERLAY_BASE="/mnt/le12-system/usr/lib/kernel-overlays/base/lib/modules"
-[ -d "$OVERLAY_BASE" ] || { err "Kein kernel-overlays in LE12 SYSTEM — falsches Image?"; exit 1; }
+[ -d "$OVERLAY_BASE" ] || { err "No kernel-overlays in LE12 SYSTEM — wrong image?"; exit 1; }
 
 LE12_KERNEL_VER=$(sudo ls "$OVERLAY_BASE" | head -1)
-[ -z "$LE12_KERNEL_VER" ] && { err "Keine Kernel-Version in LE12 Overlay gefunden"; exit 1; }
-log "LE12 Kernel-Version: $LE12_KERNEL_VER"
+[ -z "$LE12_KERNEL_VER" ] && { err "No kernel version found in LE12 Overlay"; exit 1; }
+log "LE12 kernel version: $LE12_KERNEL_VER"
 
 KO_COUNT=$(sudo find "$OVERLAY_BASE/$LE12_KERNEL_VER" -name "*.ko" | wc -l)
-[ "$KO_COUNT" -lt 10 ] && { err "Nur $KO_COUNT .ko-Dateien in Overlay"; exit 1; }
-log "$KO_COUNT Kernel-Module gefunden"
+[ "$KO_COUNT" -lt 10 ] && { err "Only $KO_COUNT .ko files in Overlay"; exit 1; }
+log "$KO_COUNT kernel modules found"
 
-# Kernel + DTBs kopieren
+# Copy kernel + DTBs
 sudo cp /mnt/le12-boot/kernel.img "$WORKDIR/"
 sudo cp /mnt/le12-boot/*.dtb "$WORKDIR/"
 sudo cp -r /mnt/le12-boot/overlays "$WORKDIR/" 2>/dev/null || true
 
-# Module aus Overlay-Pfad sichern
+# Save modules from overlay path
 sudo tar czf "$WORKDIR/le12-modules.tar.gz" -C "$OVERLAY_BASE" "$LE12_KERNEL_VER"
 
-# ── 5. LE13 SYSTEM mounten + patchen ───────────────────────────
-log "Extrahiere LE13 SYSTEM..."
+# ── 5. Mount LE13 SYSTEM + patch ───────────────────────────
+log "Extracting LE13 SYSTEM..."
 sudo losetup -fP le13.img
 LE13_LOOP=$(sudo losetup -j le13.img | grep -oP '/dev/loop\d+(?=:)' | head -1)
 sudo mkdir -p /mnt/le13-boot /mnt/le13-system
@@ -112,63 +112,63 @@ sudo mount ${LE13_LOOP}p1 /mnt/le13-boot
 
 LE13_KERNEL_VER=$(sudo unsquashfs -l /mnt/le13-boot/SYSTEM 2>/dev/null | grep 'lib/modules/' | head -1 | awk -F/ '{print $4}' || echo "unknown")
 
-log "Patche LE13 SYSTEM (LE12-Module in Overlay)..."
+log "Patching LE13 SYSTEM (LE12 modules into overlay)..."
 sudo unsquashfs -d "$WORKDIR/squashfs-root" /mnt/le13-boot/SYSTEM
 
-# LE13 Overlay-Module entfernen, LE12 Overlay-Module reinkopieren
+# Remove LE13 overlay modules, copy LE12 overlay modules in
 LE13_OVERLAY="$WORKDIR/squashfs-root/usr/lib/kernel-overlays/base/lib/modules"
 sudo bash -c "rm -rf $LE13_OVERLAY/*"
 sudo mkdir -p "$LE13_OVERLAY"
 sudo tar xzf "$WORKDIR/le12-modules.tar.gz" -C "$LE13_OVERLAY/"
 
-# Versions-Marker setzen
+# Set version marker
 echo "LE12-Kernel: $LE12_KERNEL_VER | LE13-Nightly: $LATEST_DATE ($LATEST_COMMIT)" | \
     sudo tee "$WORKDIR/squashfs-root/etc/le-transplant-info" > /dev/null
 
-log "Re-squashfs (dauert ~2min)..."
+log "Re-squashfs (~2 min)..."
 sudo mksquashfs "$WORKDIR/squashfs-root" "$WORKDIR/SYSTEM" -comp xz -noappend
 
-# ── 6. Prüfen ob --deploy ─────────────────────────────────────
+# ── 6. Check if --deploy ─────────────────────────────────────
 if [ "${1:-}" != "--deploy" ]; then
     SIZE=$(du -h "$WORKDIR/SYSTEM" | cut -f1)
-    log "Hybrid gebaut: SYSTEM ($SIZE)"
-    log "Zum Deployen: $0 --deploy"
+    log "Hybrid built: SYSTEM ($SIZE)"
+    log "To deploy: $0 --deploy"
     echo ""
-    echo "Dateien in $WORKDIR:"
+    echo "Files in $WORKDIR:"
     ls -lh "$WORKDIR"/{kernel.img,SYSTEM,*.dtb}
     exit 0
 fi
 
-# ── 7. Deploy auf crackberry5 ──────────────────────────────────
-log "Deploy auf $DEPLOY_HOST..."
+# ── 7. Deploy to crackberry5 ──────────────────────────────────
+log "Deploying to $DEPLOY_HOST..."
 
-# Backup aktueller /flash
+# Backup current /flash
 ssh "$DEPLOY_USER@$DEPLOY_HOST" "
     mount -o remount,rw /flash
     mkdir -p /storage/backup-flash-\$(date +%Y%m%d-%H%M)
     cp /flash/kernel.img /flash/SYSTEM /flash/*.dtb /storage/backup-flash-\$(date +%Y%m%d-%H%M)/
     cp -r /flash/overlays /storage/backup-flash-\$(date +%Y%m%d-%H%M)/ 2>/dev/null
-" || { err "SSH-Backup fehlgeschlagen"; exit 1; }
+" || { err "SSH backup failed"; exit 1; }
 
-# Kernel + SYSTEM + DTBs hochladen
-scp "$WORKDIR/kernel.img" "$DEPLOY_USER@$DEPLOY_HOST:/flash/" || { err "kernel.img upload fehlgeschlagen"; exit 1; }
-scp "$WORKDIR/SYSTEM" "$DEPLOY_USER@$DEPLOY_HOST:/flash/" || { err "SYSTEM upload fehlgeschlagen"; exit 1; }
+# Upload kernel + SYSTEM + DTBs
+scp "$WORKDIR/kernel.img" "$DEPLOY_USER@$DEPLOY_HOST:/flash/" || { err "kernel.img upload failed"; exit 1; }
+scp "$WORKDIR/SYSTEM" "$DEPLOY_USER@$DEPLOY_HOST:/flash/" || { err "SYSTEM upload failed"; exit 1; }
 scp "$WORKDIR"/*.dtb "$DEPLOY_USER@$DEPLOY_HOST:/flash/" 2>/dev/null || true
 scp -r "$WORKDIR/overlays" "$DEPLOY_USER@$DEPLOY_HOST:/flash/" 2>/dev/null || true
 
-# Marker + Reboot
+# Marker + reboot
 ssh "$DEPLOY_USER@$DEPLOY_HOST" "
     echo '$LATEST_DATE-$LATEST_COMMIT' > $MARKER_FILE
     mount -o remount,ro /flash
     systemctl reboot
-" || { err "Reboot fehlgeschlagen"; exit 1; }
+" || { err "Reboot failed"; exit 1; }
 
-log "Deploy abgeschlossen. Warte 120s auf Reboot..."
+log "Deploy complete. Waiting 120s for reboot..."
 sleep 120
 
 # Verify
 if ssh -o ConnectTimeout=10 "$DEPLOY_USER@$DEPLOY_HOST" "echo OK" 2>/dev/null; then
-    log "✅ Transplant erfolgreich! System online."
+    log "✅ Transplant successful! System online."
 else
-    warn "⚠️  System nach 120s nicht erreichbar — ggf. manuell prüfen."
+    warn "⚠️  System not reachable after 120s — check manually."
 fi

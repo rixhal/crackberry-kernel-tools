@@ -1,6 +1,6 @@
 # Crackberry Kernel Tools
 
-Kernel extraction, backup, and restore tools for LibreELEC on Raspberry Pi 5.
+Kernel extraction, backup, restore, and transplant tools for LibreELEC on Raspberry Pi 5.
 
 ## Context
 
@@ -8,31 +8,31 @@ Kernel extraction, backup, and restore tools for LibreELEC on Raspberry Pi 5.
 ```
 v3d 1002000000.v3d: MMU error from client L2T (40) at 0x1228ab00, pte invalid
 ```
-→ Testbild statt Video, oder Systemcrash.
+→ Test pattern instead of video, or system crash.
 
-**Solution:** LE12-Kernel-Transplant — LE12 stable SYSTEM (kernel 6.12.56) mit LE13 /storage (Kodi 21, alle Addons).
+**Solution:** LE12 kernel transplant — LE12 stable SYSTEM (kernel 6.12.56) with LE13 `/storage` (Kodi 22, all addons).
 
-**Status: ✅ FUNKTIONIERT** (seit 2026-06-04 im Produktivbetrieb)
+**Status: ✅ WORKING** (in production since 2026-06-04)
 
-- V3D-MMU: keine Errors ✅
-- WiFi: verbunden, -51 dBm ✅
-- LAN: funktioniert ✅
-- Kodi 21 + alle Addons (Samsung TV Plus, VavooTV, Flatpak) ✅
+- V3D-MMU: no errors ✅
+- WiFi: connected, -51 dBm ✅
+- LAN: working ✅
+- Kodi 22 + all addons (Samsung TV Plus, VavooTV, Flatpak) ✅
 - Tailscale ✅
-- Keine Crashes bei H.264-Playback ✅
+- No crashes during H.264 playback ✅
 
-## So funktioniert's
+## How It Works
 
-LE12-SYSTEM (SquashFS) stellt Kernel 6.12.56 + Module + Firmware.
-LE13-/storage stellt Kodi 21, Addons, Flatpak, alle Userdaten.
+The LE12 SYSTEM (SquashFS) provides kernel 6.12.56 + modules + firmware.
+LE13 `/storage` provides Kodi 22, addons, Flatpak, and all user data.
 
-Kein Kernel-Mixing-Hack nötig — einfach das komplette LE12-SYSTEM deployen,
-/storage unangetastet lassen. Die Kernel-Module passen perfekt zum laufenden Kernel,
-weil sie aus dem gleichen SYSTEM-Image kommen.
+No kernel mixing hacks needed — simply deploy the full LE12 SYSTEM,
+leave `/storage` untouched. Kernel modules match the running kernel perfectly
+because they come from the same SYSTEM image.
 
-## Deployment (durchgeführt 2026-06-04)
+## Deployment (performed 2026-06-04)
 
-### 1. LE13 Boot-Files backupen
+### 1. Backup LE13 boot files
 ```bash
 ssh root@10.10.10.140 "
   mount -o remount,rw /flash
@@ -42,17 +42,17 @@ ssh root@10.10.10.140 "
 "
 ```
 
-### 2. LE12.2.1 Stable downloaden + SYSTEM deployen
+### 2. Download LE12.2.1 stable + deploy SYSTEM
 ```bash
 wget https://releases.libreelec.tv/LibreELEC-RPi5.aarch64-12.2.1.img.gz
 gunzip LibreELEC-RPi5.aarch64-12.2.1.img.gz
 
-# Mounten
+# Mount
 sudo losetup -f --show LibreELEC-RPi5.aarch64-12.2.1.img  # → /dev/loop0
 sudo partprobe /dev/loop0
 sudo mount /dev/loop0p1 /mnt/le12-boot
 
-# Auf crackberry5 deployen (dauert ~2min)
+# Deploy to crackberry5 (~2 min)
 scp /mnt/le12-boot/kernel.img /mnt/le12-boot/SYSTEM root@10.10.10.140:/flash/
 scp /mnt/le12-boot/*.dtb root@10.10.10.140:/flash/
 scp -r /mnt/le12-boot/overlays root@10.10.10.140:/flash/
@@ -61,11 +61,11 @@ scp -r /mnt/le12-boot/overlays root@10.10.10.140:/flash/
 ssh root@10.10.10.140 "mount -o remount,ro /flash && systemctl reboot"
 ```
 
-### 3. Nach Reboot (~2min warten)
-System bootet mit LE12-Kernel. WiFi braucht beim ersten Mal ~30s länger.
-Danach alles normal.
+### 3. After reboot (wait ~2 min)
+System boots with LE12 kernel. WiFi takes ~30s longer on first boot.
+After that everything is normal.
 
-## Rollback zu LE13
+## Rollback to LE13
 ```bash
 ssh root@10.10.10.140 "
   mount -o remount,rw /flash
@@ -78,7 +78,7 @@ ssh root@10.10.10.140 "
 "
 ```
 
-## Backup (aktueller Zustand)
+## Backup (current state)
 ```bash
 # /flash backup
 ssh root@10.10.10.140 "
@@ -100,10 +100,13 @@ ssh root@10.10.10.140 "
 - `extract-le-kernel.sh` — Extract kernel.img, DTBs, overlays, modules from LE image
 - `backup-kernel.sh` — Backup current kernel from running LE system
 - `restore-kernel.sh` — Restore backed-up kernel files to /flash
+- `build-le12-kernel-transplant.sh` — Automated hybrid build (LE12 kernel + LE13 userspace)
+- `le12-mesa-swap/` — LE12 Mesa full swap for Widevine secure video (see subdirectory)
 
 ## Pitfalls
 
-- **Nie nur kernel.img tauschen ohne SYSTEM** — Module passen nicht → Boot-Failure
-- **Reboot dauert beim ersten Mal länger** — WiFi-Firmware-Neuladen
-- **LE13-/storage bleibt erhalten** — alle Addons und Configs überleben
-- **Rollback jederzeit möglich** — LE13-Backup liegt in /storage/le13-backup-boot/
+- **Never swap only kernel.img without SYSTEM** — modules won't match → boot failure
+- **First reboot takes longer** — WiFi firmware reload
+- **LE13 /storage is preserved** — all addons and configs survive
+- **Rollback always possible** — LE13 backup at /storage/le13-backup-boot/
+- **VFAT quirks:** Always `busybox cp` to /flash, never `scp` directly. Run `busybox sync` after.
