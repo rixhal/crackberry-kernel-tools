@@ -75,7 +75,7 @@ ISA (InputStream Adaptive 22.3.14.1) detects that the DRM display plane only sup
 `AR24/LINEAR` — no `NV12` format. DRMPRIME secure decode requires NV12 for zero-copy
 buffer sharing. Without NV12, ISA disables the secure decode path.
 
-**Result:** Widevine decrypts successfully, but testbild plays instead of video (audio works).
+**Result:** Widevine decrypts successfully, but test pattern plays instead of video (audio works).
 This is a Pi 5 hardware/kernel limitation — the LE12 kernel V3D driver doesn't expose
 NV12 on the display plane.
 
