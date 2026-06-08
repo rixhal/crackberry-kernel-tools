@@ -1,0 +1,22 @@
+From: Richie (Hermes Enterprise)
+Date: 2026-06-08
+Subject: Force Secure Path + Secure Decoder + AnnexB in CDM capabilities
+
+Forces the Widevine CDM to report SECURE_PATH, SECURE_DECODER, and ANNEXB_REQUIRED
+capabilities, overriding the CDM's own capability detection. This makes ISA/Kodi use
+the DRMPRIME secure decode path instead of software decode.
+
+This patch is necessary but NOT SUFFICIENT - the kernel must provide
+/dev/dma_heap/reserved for secure buffer allocation.
+
+--- src/decrypters/widevine/WVCencSingleSampleDecrypter.cpp
++++ src/decrypters/widevine/WVCencSingleSampleDecrypter.cpp
+@@ -161,7 +161,7 @@
+     return;
+   }
+ 
+-  caps.flags = Capabilities::SUPPORTS_DECODING;
++  caps.flags = Capabilities::SUPPORTS_DECODING | Capabilities::SECURE_PATH | Capabilities::ANNEXB_REQUIRED | Capabilities::SECURE_DECODER;
+ 
+   if (m_keys.empty())
+   {

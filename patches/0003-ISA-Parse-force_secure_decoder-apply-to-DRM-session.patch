@@ -1,0 +1,41 @@
+From: Richie (Hermes Enterprise)
+Date: 2026-06-08
+Subject: Parse force_secure_decoder in manifest_config and apply to DRM session
+
+Adds parser handler for "force_secure_decoder" boolean in ParseManifestConfig()
+and uses the parsed value in DrmEngine::InitializeSession() to override the
+isForceSecureDecoder parameter, making the DRM session use secure decode path.
+
+Two files changed:
+- src/CompKodiProps.cpp - parser handler in ParseManifestConfig
+- src/decrypters/DrmEngine.cpp - apply forceSecureDecoder to session
+
+--- src/CompKodiProps.cpp
++++ src/CompKodiProps.cpp
+@@ -456,6 +456,10 @@
+     {
+       m_manifestConfig.ignoreMediaDefaultKid = jValue.get<bool>();
+     }
++    else if (configName == "force_secure_decoder" && jValue.is_boolean())
++    {
++      m_manifestConfig.forceSecureDecoder = jValue.get<bool>();
++    }
+     else
+     {
+       LOG::LogF(LOGERROR, "Unsupported \"%s\" config or wrong data type on \"%s\" property",
+--- src/decrypters/DrmEngine.cpp
++++ src/decrypters/DrmEngine.cpp
+@@ -376,6 +376,13 @@
+   if (kodiProps.GetManifestConfig().ignoreMediaDefaultKid)
+     mediaDrmInfos.clear();
+
++  // Check if manifest_config force_secure_decoder is set,
++  // if so, override isForceSecureDecoder parameter
++  if (kodiProps.GetManifestConfig().forceSecureDecoder)
++    isForceSecureDecoder = true;
++  else if (!isForceSecureDecoder.has_value())
++    isForceSecureDecoder = false;
++
+   std::vector<DRM::DRMInfo> drmInfos = DrmInfosUnion(mediaDrmInfos, manifestDrmInfos);
+ 
+   if (drmInfos.empty())
